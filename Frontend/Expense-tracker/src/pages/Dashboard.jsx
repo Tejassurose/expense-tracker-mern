@@ -166,7 +166,7 @@ const confirmDelete = async () => {
                       .sort((a, b) => new Date(b.date) - new Date(a.date))
                       .slice(0, 5)
                       .map(t => (
-                        <TransactionItem key={t.id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
+                        <TransactionItem key={t._id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
                       ))
                 }
               </div>
@@ -225,7 +225,7 @@ const confirmDelete = async () => {
                 {filtered.length === 0
                   ? <div className="empty-state"><span>🔍</span>No transactions match your filters</div>
                   : filtered.map(t => (
-                      <TransactionItem key={t.id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
+                      <TransactionItem key={t._id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
                     ))
                 }
               </div>
