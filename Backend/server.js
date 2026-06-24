@@ -11,8 +11,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// console.log("auth routes:", require("./routes/authRoutes"));
-// console.log("transaction routes:", require("./routes/transactionRoutes"));
 // ── Routes ──────────────────────────────
 app.use("/api/auth",         require("./routes/authRoutes"));
 app.use("/api/transactions", require("./routes/transactionRoutes"));
@@ -23,13 +21,5 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
-
-app.use(cors({
-  origin: [
-    "http://localhost:5173",              // local dev
-    "https://your-app-name.vercel.app",    // production (add after frontend deploys)
-  ],
-  credentials: true,
-}));
