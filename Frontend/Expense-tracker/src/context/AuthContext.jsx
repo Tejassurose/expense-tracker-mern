@@ -35,25 +35,26 @@ export function AuthProvider({ children }) {
   };
 
   // ── LOGIN ────────────────────────────────────────────
-  const login = async (email, password) => {
-    try {
-      setLoading(true);
-      setError("");
-      const { data } = await API.post("/auth/login", { email, password });
+const login = async (email, password) => {
+  try {
+    setLoading(true);
+    setError("");
+    const { data } = await API.post("/auth/login", { email, password });
 
-      // Save token and user
-      localStorage.setItem("et_token", data.token);
-      localStorage.setItem("et_user",  JSON.stringify({ id: data._id, name: data.name, email: data.email }));
-      setUser({ id: data._id, name: data.name, email: data.email });
-      return true;
-    } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
+    localStorage.setItem("et_token", data.token);     // ← must save
+    localStorage.setItem("et_user", JSON.stringify({
+      id: data._id, name: data.name, email: data.email
+    }));
 
+    setUser({ id: data._id, name: data.name, email: data.email });
+    return true;
+  } catch (err) {
+    setError(err.response?.data?.message || "Login failed");
+    return false;
+  } finally {
+    setLoading(false);
+  }
+};
   // ── LOGOUT ───────────────────────────────────────────
   const logout = () => {
     setUser(null);
