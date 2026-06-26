@@ -8,7 +8,13 @@ connectDB();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "kharcha-frontend-git-main-tejas-surose.vercel.app",  // ← your actual Vercel URL
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 
 // ── Routes ──────────────────────────────
