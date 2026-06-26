@@ -1,14 +1,11 @@
 import axios from "axios";
 
-console.log("API URL:", import.meta.env.VITE_API_URL); // temporarily
-
 const API = axios.create({
- baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
 });
 
 API.interceptors.request.use((config) => {
- 
-  const token = localStorage.getItem("et_token");// temporarily
+  const token = localStorage.getItem("et_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
