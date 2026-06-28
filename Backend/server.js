@@ -10,7 +10,8 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://kharcha-frontend.vercel.app/login",
+  "https://kharcha-frontend.vercel.app",
+  "https://kharcha-frontend-git-main-tejas-surose.vercel.app"
 ];
 
 app.use(cors({
