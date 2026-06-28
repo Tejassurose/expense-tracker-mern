@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTransactions } from "../context/TransactionContext";
 import { formatCurrency } from "../utils/formatCurrency";
-import Sidebar         from "../components/Sidebar";
-import TransactionItem from "../components/TransactionItem";
-import TransactionForm from "../components/TransactionForm";
-import Toast           from "../components/Toast";
-
-
+import Sidebar            from "../components/Sidebar";
+import TransactionItem     from "../components/TransactionItem";
+import TransactionForm     from "../components/TransactionForm";
+import Toast               from "../components/Toast";
+import MonthSelector       from "../components/MonthSelector";
+import DateRangeSearch     from "../components/DateRangeSearch";
+import MonthlyComparison   from "../components/MonthlyComparison";
+import YearlySummary       from "../components/YearlySummary";
 
 const CATEGORY_ICONS = {
   Salary:"💼", Freelance:"💻", Investment:"📈", Gift:"🎁", "Other Income":"💰",
@@ -21,53 +23,87 @@ const ALL_CATS = [
 ];
 
 export default function Dashboard() {
- const { user }   = useAuth();
+  const { user } = useAuth();
   const {
     transactions, addTransaction, updateTransaction, deleteTransaction,
     totalIncome, totalExpense, balance,
-    fetchTransactions,            // ← ADD ONLY THIS LINE
+    fetchTransactions,
   } = useTransactions();
 
-  const [page,    setPage]    = useState("dashboard");
+  const [page,     setPage]     = useState("dashboard");
   const [showForm, setShowForm] = useState(false);
   const [editData, setEditData] = useState(null);
-  const [toast,   setToast]   = useState(null);
-  const [delId,   setDelId]   = useState(null);
-  const [filter,  setFilter]  = useState({ type: "all", category: "all", search: "" });
+  const [toast,    setToast]    = useState(null);
+  const [delId,    setDelId]    = useState(null);
+  const [filter,   setFilter]   = useState({ type: "all", category: "all", search: "" });
 
-   useEffect(() => {
+  // ── Month / Date Range State ──────────────────────────
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear,  setSelectedYear]  = useState(now.getFullYear());
+  const [dateRange,     setDateRange]     = useState(null); // { from, to, label }
+
+  useEffect(() => {
     fetchTransactions();
   }, []);
 
   const notify = (message, type = "success") => setToast({ message, type });
 
   const handleSubmit = async (data) => {
-  if (editData) {
-    await updateTransaction({ ...data, _id: editData._id });
-    notify("Transaction updated!");
-  } else {
-    await addTransaction(data);
-    notify("Transaction added! 🎉");
-  }
-  setShowForm(false);
-  setEditData(null);
-};
+    if (editData) {
+      await updateTransaction({ ...data, _id: editData._id });
+      notify("Transaction updated!");
+    } else {
+      await addTransaction(data);
+      notify("Transaction added! 🎉");
+    }
+    setShowForm(false);
+    setEditData(null);
+  };
 
- const handleEdit = (t) => {
-  setEditData(t);
-  setShowForm(true);
-  setPage("transactions");
-};
+  const handleEdit = (t) => {
+    setEditData(t);
+    setShowForm(true);
+    setPage("transactions");
+  };
 
- const handleDelete  = (id) => setDelId(id);
-const confirmDelete = async () => {
-  await deleteTransaction(delId);
-  setDelId(null);
-  notify("Transaction deleted", "error");
-};
+  const handleDelete  = (id) => setDelId(id);
+  const confirmDelete = async () => {
+    await deleteTransaction(delId);
+    setDelId(null);
+    notify("Transaction deleted", "error");
+  };
 
   const openForm = () => { setEditData(null); setShowForm(true); };
 
+  // ── Month / Date Range Handlers ───────────────────────
+  const handleMonthChange = (month, year) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+    setDateRange(null); // clear custom range when picking a month
+  };
+
+  const handleDateSearch = (from, to, label) => {
+    setDateRange({ from, to, label });
+  };
+
+  const handleClearSearch = () => {
+    setDateRange(null);
+  };
+
+  // ── Filtered by Month or Date Range (for Dashboard page) ──
+  const monthFilteredTransactions = dateRange
+    ? transactions.filter(t => t.date >= dateRange.from && t.date <= dateRange.to)
+    : transactions.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      });
+
+  const monthIncome  = monthFilteredTransactions.filter(t => t.type === "income").reduce((s,t)=>s+t.amount,0);
+  const monthExpense = monthFilteredTransactions.filter(t => t.type === "expense").reduce((s,t)=>s+t.amount,0);
+  const monthBalance = monthIncome - monthExpense;
+
+  // ── Filtered by search/type/category (for Transactions page) ──
   const filtered = transactions
     .filter(t => {
       if (filter.type     !== "all" && t.type     !== filter.type)     return false;
@@ -87,7 +123,7 @@ const confirmDelete = async () => {
     .sort((a, b) => b.amount - a.amount);
 
   const savingsRate = totalIncome ? Math.round((balance / totalIncome) * 100) : 0;
-  const maxBar      = Math.max(totalIncome, totalExpense) || 1;
+  const maxBar       = Math.max(totalIncome, totalExpense) || 1;
 
   return (
     <div className="app-layout">
@@ -101,6 +137,7 @@ const confirmDelete = async () => {
             {page === "dashboard"    && "🏠 Dashboard"}
             {page === "transactions" && "↕️ Transactions"}
             {page === "analytics"    && "📊 Analytics"}
+            {page === "yearly"       && "📅 Yearly Summary"}
           </h1>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div className="header-user">
@@ -117,54 +154,85 @@ const confirmDelete = async () => {
         {page === "dashboard" && (
           <div className="page-content">
 
-            {/* Summary Cards */}
+            {/* Month Navigation + Custom Date Search */}
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              alignItems: "center", flexWrap: "wrap", gap: 10,
+            }}>
+              <MonthSelector
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+                onChange={handleMonthChange}
+              />
+              <DateRangeSearch
+                onSearch={handleDateSearch}
+                onClear={handleClearSearch}
+                isActive={!!dateRange}
+              />
+            </div>
+
+            {dateRange && (
+              <div style={{
+                background: "rgba(59,130,246,0.08)",
+                border: "1px solid rgba(59,130,246,0.2)",
+                borderRadius: 10, padding: "8px 14px",
+                fontSize: 13, color: "var(--blue)",
+              }}>
+                📆 Showing: {dateRange.label} ({monthFilteredTransactions.length} transactions)
+              </div>
+            )}
+
+            {/* Summary Cards — filtered by month/range */}
             <div className="summary-cards">
               <div className="summary-card balance">
-                <div className="sc-label">Net Balance</div>
-                <div className="sc-amount" style={{ color: balance >= 0 ? "#86efac" : "#fca5a5" }}>
-                  {formatCurrency(balance)}
+                <div className="sc-label">
+                  {dateRange ? "Selected Range" : "This Month"} Balance
                 </div>
-                <div className="sc-sub">{balance >= 0 ? "You're doing great 🎉" : "Spending more than earning"}</div>
+                <div className="sc-amount" style={{ color: monthBalance >= 0 ? "#86efac" : "#fca5a5" }}>
+                  {formatCurrency(monthBalance)}
+                </div>
+                <div className="sc-sub">
+                  {monthBalance >= 0 ? "You're doing great 🎉" : "Spending more than earning"}
+                </div>
               </div>
               <div className="summary-card income">
-                <div className="sc-label">Total Income</div>
-                <div className="sc-amount" style={{ color: "#86efac" }}>{formatCurrency(totalIncome)}</div>
-                <div className="sc-sub">{transactions.filter(t => t.type === "income").length} transactions</div>
+                <div className="sc-label">Income</div>
+                <div className="sc-amount" style={{ color: "#86efac" }}>{formatCurrency(monthIncome)}</div>
+                <div className="sc-sub">
+                  {monthFilteredTransactions.filter(t => t.type === "income").length} transactions
+                </div>
               </div>
               <div className="summary-card expense">
-                <div className="sc-label">Total Expenses</div>
-                <div className="sc-amount" style={{ color: "#fca5a5" }}>{formatCurrency(totalExpense)}</div>
-                <div className="sc-sub">{transactions.filter(t => t.type === "expense").length} transactions</div>
+                <div className="sc-label">Expenses</div>
+                <div className="sc-amount" style={{ color: "#fca5a5" }}>{formatCurrency(monthExpense)}</div>
+                <div className="sc-sub">
+                  {monthFilteredTransactions.filter(t => t.type === "expense").length} transactions
+                </div>
               </div>
             </div>
 
-            {/* Savings Rate */}
+            {/* Monthly Comparison Chart */}
             <div className="section">
-              <div className="section-title">💰 Savings Rate</div>
-              <div className="progress-outer">
-                <div className="progress-bar" style={{ width: `${Math.max(0, Math.min(100, savingsRate))}%` }} />
-              </div>
-              <div className="progress-label">
-                {totalIncome
-                  ? `You are saving ${savingsRate}% of your income`
-                  : "Add income transactions to see your savings rate"}
-              </div>
+              <div className="section-title">📊 Last 6 Months Comparison</div>
+              <MonthlyComparison transactions={transactions} monthsToShow={6} />
             </div>
 
-            {/* Recent 5 Transactions */}
+            {/* Transactions for selected month/range */}
             <div className="section">
               <div className="section-header">
-                <div className="section-title" style={{ margin: 0 }}>🕐 Recent Transactions</div>
+                <div className="section-title" style={{ margin: 0 }}>
+                  🕐 {dateRange ? "Filtered" : "Month"} Transactions
+                </div>
                 <button className="link-btn" style={{ margin: 0 }} onClick={() => setPage("transactions")}>
                   View all →
                 </button>
               </div>
               <div className="tx-list">
-                {transactions.length === 0
-                  ? <div className="empty-state"><span>💸</span>No transactions yet. Hit + Add!</div>
-                  : transactions
+                {monthFilteredTransactions.length === 0
+                  ? <div className="empty-state"><span>📭</span>No transactions in this period</div>
+                  : monthFilteredTransactions
                       .sort((a, b) => new Date(b.date) - new Date(a.date))
-                      .slice(0, 5)
+                      .slice(0, 8)
                       .map(t => (
                         <TransactionItem key={t._id} transaction={t} onEdit={handleEdit} onDelete={handleDelete} />
                       ))
@@ -176,7 +244,7 @@ const confirmDelete = async () => {
         )}
 
         {/* ════════════════════════════════
-            TRANSACTIONS PAGE
+            TRANSACTIONS PAGE (all-time, with filters)
         ════════════════════════════════ */}
         {page === "transactions" && (
           <div className="page-content">
@@ -262,7 +330,7 @@ const confirmDelete = async () => {
 
             {/* Bar Chart */}
             <div className="section">
-              <div className="section-title">📊 Income vs Expense</div>
+              <div className="section-title">📊 Income vs Expense (All Time)</div>
               <div className="bar-chart">
                 {[
                   { label: "Income",  amount: totalIncome,          color: "var(--green)" },
@@ -283,7 +351,7 @@ const confirmDelete = async () => {
 
             {/* Category Breakdown */}
             <div className="section">
-              <div className="section-title">🗂️ Expense by Category</div>
+              <div className="section-title">🗂️ Expense by Category (All Time)</div>
               {byCategory.length === 0
                 ? <div className="empty-state"><span>📊</span>No expense data yet</div>
                 : byCategory.map(({ cat, amount }) => (
@@ -303,6 +371,15 @@ const confirmDelete = async () => {
               }
             </div>
 
+          </div>
+        )}
+
+        {/* ════════════════════════════════
+            YEARLY SUMMARY PAGE
+        ════════════════════════════════ */}
+        {page === "yearly" && (
+          <div className="page-content">
+            <YearlySummary transactions={transactions} />
           </div>
         )}
 

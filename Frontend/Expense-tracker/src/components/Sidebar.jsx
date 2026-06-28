@@ -6,12 +6,12 @@ export default function Sidebar({ activePage, setActivePage }) {
   const { user, logout }              = useAuth();
   const { balance, totalIncome, totalExpense } = useTransactions();
 
-  const navItems = [
-    { id: "dashboard",    icon: "🏠", label: "Dashboard"    },
-    { id: "transactions", icon: "↕️",  label: "Transactions" },
-    { id: "analytics",    icon: "📊", label: "Analytics"    },
-  ];
-
+const navItems = [
+  { id: "dashboard",    icon: "🏠", label: "Dashboard"      },
+  { id: "transactions", icon: "↕️", label: "Transactions"   },
+  { id: "analytics",    icon: "📊", label: "Analytics"      },
+  { id: "yearly",       icon: "📅", label: "Yearly Summary" }, 
+];
   return (
     <aside className="sidebar">
       {/* Logo */}
