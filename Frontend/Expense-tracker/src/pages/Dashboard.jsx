@@ -10,6 +10,7 @@ import MonthSelector       from "../components/MonthSelector";
 import DateRangeSearch     from "../components/DateRangeSearch";
 import MonthlyComparison   from "../components/MonthlyComparison";
 import YearlySummary       from "../components/YearlySummary";
+import BudgetPage          from "../components/BudgetPage";
 
 const CATEGORY_ICONS = {
   Salary:"💼", Freelance:"💻", Investment:"📈", Gift:"🎁", "Other Income":"💰",
@@ -37,11 +38,14 @@ export default function Dashboard() {
   const [delId,    setDelId]    = useState(null);
   const [filter,   setFilter]   = useState({ type: "all", category: "all", search: "" });
 
-  // ── Month / Date Range State ──────────────────────────
+  // ── Dashboard Month / Date Range State ────────────────
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear,  setSelectedYear]  = useState(now.getFullYear());
   const [dateRange,     setDateRange]     = useState(null); // { from, to, label }
+
+  // ── Transactions Page Date Range (separate state) ─────
+  const [txDateRange, setTxDateRange] = useState(null);
 
   useEffect(() => {
     fetchTransactions();
@@ -76,7 +80,7 @@ export default function Dashboard() {
 
   const openForm = () => { setEditData(null); setShowForm(true); };
 
-  // ── Month / Date Range Handlers ───────────────────────
+  // ── Dashboard Month / Date Range Handlers ─────────────
   const handleMonthChange = (month, year) => {
     setSelectedMonth(month);
     setSelectedYear(year);
@@ -91,28 +95,43 @@ export default function Dashboard() {
     setDateRange(null);
   };
 
+  // ── Transactions Page Date Range Handlers ─────────────
+  const handleTxDateSearch = (from, to, label) => {
+    setTxDateRange({ from, to, label });
+  };
+
+  const handleTxDateClear = () => {
+    setTxDateRange(null);
+  };
+
   // ── Filtered by Month or Date Range (for Dashboard page) ──
-  const monthFilteredTransactions = dateRange
-    ? transactions.filter(t => t.date >= dateRange.from && t.date <= dateRange.to)
-    : transactions.filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
-      });
+ const monthFilteredTransactions = dateRange
+  ? transactions.filter(t => {
+      const txDate = t.date.slice(0, 10); // normalize to YYYY-MM-DD
+      return txDate >= dateRange.from && txDate <= dateRange.to;
+    })
+  : transactions.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+    });
 
   const monthIncome  = monthFilteredTransactions.filter(t => t.type === "income").reduce((s,t)=>s+t.amount,0);
   const monthExpense = monthFilteredTransactions.filter(t => t.type === "expense").reduce((s,t)=>s+t.amount,0);
   const monthBalance = monthIncome - monthExpense;
 
-  // ── Filtered by search/type/category (for Transactions page) ──
-  const filtered = transactions
-    .filter(t => {
-      if (filter.type     !== "all" && t.type     !== filter.type)     return false;
-      if (filter.category !== "all" && t.category !== filter.category) return false;
-      if (filter.search && !t.title.toLowerCase().includes(filter.search.toLowerCase())) return false;
-      return true;
-    })
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
+  // ── Filtered by search/type/category/date (for Transactions page) ──
+ const filtered = transactions
+  .filter(t => {
+    if (filter.type     !== "all" && t.type     !== filter.type)     return false;
+    if (filter.category !== "all" && t.category !== filter.category) return false;
+    if (filter.search && !t.title.toLowerCase().includes(filter.search.toLowerCase())) return false;
+    if (txDateRange) {
+      const txDate = t.date.slice(0, 10);
+      if (txDate < txDateRange.from || txDate > txDateRange.to) return false;
+    }
+    return true;
+  })
+  .sort((a, b) => new Date(b.date) - new Date(a.date));
   const byCategory = ALL_CATS
     .map(cat => ({
       cat,
@@ -136,6 +155,7 @@ export default function Dashboard() {
           <h1>
             {page === "dashboard"    && "🏠 Dashboard"}
             {page === "transactions" && "↕️ Transactions"}
+            {page === "budget"       && "🎯 Budget Limits"}
             {page === "analytics"    && "📊 Analytics"}
             {page === "yearly"       && "📅 Yearly Summary"}
           </h1>
@@ -258,34 +278,51 @@ export default function Dashboard() {
             )}
 
             {/* Filters */}
-            <div className="filters">
-              <input className="filter-input" placeholder="🔍 Search title..."
-                style={{ width: 190 }}
-                value={filter.search}
-                onChange={e => setFilter(f => ({ ...f, search: e.target.value }))} />
+            <div className="filters" style={{ justifyContent: "space-between" }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <input className="filter-input" placeholder="🔍 Search title..."
+                  style={{ width: 190 }}
+                  value={filter.search}
+                  onChange={e => setFilter(f => ({ ...f, search: e.target.value }))} />
 
-              <select className="filter-input" value={filter.type}
-                onChange={e => setFilter(f => ({ ...f, type: e.target.value, category: "all" }))}>
-                <option value="all">All Types</option>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-              </select>
+                <select className="filter-input" value={filter.type}
+                  onChange={e => setFilter(f => ({ ...f, type: e.target.value, category: "all" }))}>
+                  <option value="all">All Types</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
 
-              <select className="filter-input" value={filter.category}
-                onChange={e => setFilter(f => ({ ...f, category: e.target.value }))}>
-                <option value="all">All Categories</option>
-                {ALL_CATS.map(c => <option key={c}>{c}</option>)}
-              </select>
+                <select className="filter-input" value={filter.category}
+                  onChange={e => setFilter(f => ({ ...f, category: e.target.value }))}>
+                  <option value="all">All Categories</option>
+                  {ALL_CATS.map(c => <option key={c}>{c}</option>)}
+                </select>
 
-              {(filter.type !== "all" || filter.category !== "all" || filter.search) && (
-                <button className="clear-btn"
-                  onClick={() => setFilter({ type: "all", category: "all", search: "" })}>
-                  ✕ Clear
-                </button>
-              )}
+                {(filter.type !== "all" || filter.category !== "all" || filter.search || txDateRange) && (
+                  <button className="clear-btn"
+                    onClick={() => { setFilter({ type: "all", category: "all", search: "" }); setTxDateRange(null); }}>
+                    ✕ Clear All
+                  </button>
+                )}
+              </div>
 
-              <span className="result-count">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
+              <DateRangeSearch
+                onSearch={handleTxDateSearch}
+                onClear={handleTxDateClear}
+                isActive={!!txDateRange}
+              />
             </div>
+
+            {txDateRange && (
+              <div style={{
+                background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)",
+                borderRadius: 10, padding: "8px 14px", fontSize: 13, color: "var(--blue)",
+              }}>
+                📆 Filtering by: {txDateRange.label}
+              </div>
+            )}
+
+            <div className="result-count">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</div>
 
             {/* List */}
             <div className="section">
@@ -299,6 +336,15 @@ export default function Dashboard() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* ════════════════════════════════
+            BUDGET PAGE
+        ════════════════════════════════ */}
+        {page === "budget" && (
+          <div className="page-content">
+            <BudgetPage />
           </div>
         )}
 
